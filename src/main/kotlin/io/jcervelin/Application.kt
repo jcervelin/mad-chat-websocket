@@ -2,13 +2,13 @@ package io.jcervelin
 
 import io.jcervelin.models.ChatRoom
 import io.jcervelin.models.History
-import io.jcervelin.plugins.*
+import io.jcervelin.plugins.configureClientSerialization
+import io.jcervelin.plugins.configureRouting
+import io.jcervelin.plugins.configureSerialization
 import io.jcervelin.services.LRUCache
 import io.jcervelin.services.OpenAIClient
 import io.ktor.client.*
 import io.ktor.client.engine.cio.*
-import io.ktor.client.plugins.contentnegotiation.*
-import io.ktor.serialization.kotlinx.json.*
 import io.ktor.server.application.*
 import io.ktor.server.engine.*
 import io.ktor.server.netty.*
@@ -33,20 +33,14 @@ val j = Json {
 val chatRoom = ChatRoom()
 val history = History(LRUCache(30))
 val httpClient = HttpClient(CIO) {
-    install(ContentNegotiation) {
-        json(j)
-    }
+    configureClientSerialization()
 }
 private val openAIClient = OpenAIClient(apiKey = System.getenv("OPEN_AI_KEY") ?: "MISSING_KEY", history, httpClient)
 inline fun <reified T> T.toJson(): String {
     return j.encodeToString(serializer(), this)
 }
 
-
-
 fun Application.module() {
-
     configureSerialization(j)
-
     configureRouting(chatRoom, openAIClient, history, clock = Clock.fixed(Instant.now(), ZoneId.systemDefault()))
 }
