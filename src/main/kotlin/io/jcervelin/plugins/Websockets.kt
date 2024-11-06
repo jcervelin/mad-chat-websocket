@@ -1,22 +1,35 @@
 package io.jcervelin.plugins
 
-import io.jcervelin.models.Priority
-import io.jcervelin.models.Task
-import io.jcervelin.models.TaskRepository
+import io.jcervelin.chatRoom
+import io.jcervelin.models.ChatRoom
+import io.jcervelin.models.History
+import io.jcervelin.models.Message
+import io.jcervelin.models.MessageRequest
+import io.jcervelin.services.AIClient
+import io.jcervelin.services.sendMessageService
 import io.ktor.serialization.kotlinx.*
 import io.ktor.server.application.*
 import io.ktor.server.routing.*
 import io.ktor.server.websocket.*
 import io.ktor.websocket.*
 import kotlinx.coroutines.channels.consumeEach
-import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.asSharedFlow
+import kotlinx.coroutines.launch
 import kotlinx.serialization.json.Json
-import java.util.*
-import kotlin.collections.ArrayList
+import org.slf4j.LoggerFactory
+import java.time.Clock
+import java.time.Instant
 import kotlin.time.Duration.Companion.seconds
 
+private val logger = LoggerFactory.getLogger("websocket")
 
-fun Application.configureSockets() {
+fun Application.configureSockets(
+    chatRoom: ChatRoom,
+    openAIClient: AIClient,
+    history: History,
+    clock: Clock
+) {
     install(WebSockets) {
         contentConverter = KotlinxWebsocketSerializationConverter(Json)
         pingPeriod = 15.seconds
@@ -24,40 +37,43 @@ fun Application.configureSockets() {
         maxFrameSize = Long.MAX_VALUE
         masking = false
     }
-
     routing {
-        val sessions =
-            Collections.synchronizedList<WebSocketServerSession>(ArrayList())
+        val messageResponseFlow = MutableSharedFlow<Message>()
+        val sharedFlow = messageResponseFlow.asSharedFlow()
 
-        webSocket("/tasks") {
-            sendAllTasks()
-            close(CloseReason(CloseReason.Codes.NORMAL, "All done"))
-        }
+        webSocket("/messages") {
+            sendAllMessages()
 
-        webSocket("/tasks2") {
-            sessions.add(this)
-            sendAllTasks()
-
-            incoming.consumeEach {
-                val newTask = receiveDeserialized<Task>()
-                TaskRepository.addTask(newTask)
-                sessions.addTask(newTask)
+            val job = launch {
+                sharedFlow.collect { message ->
+                    println("Launch: $message")
+                    sendSerialized(message)
+                }
             }
-//            while(true) {
-//                val newTask = receiveDeserialized<Task>()
-//                TaskRepository.addTask(newTask)
-//                sessions.addTask(newTask)
-//            }
+
+            runCatching {
+                incoming.consumeEach {
+                    if (it is Frame.Text) {
+                        val messageRequest = Json.decodeFromString<MessageRequest>(it.readText())
+
+                        val messageResponse = sendMessageService(
+                            messageRequest,
+                            chatRoom,
+                            openAIClient,
+                            history,
+                            Instant.now(clock).toEpochMilli()
+                        )
+
+                        messageResponseFlow.emit(messageResponse)
+                    }
+                }
+            }.onFailure { ex ->
+                logger.error("Error while calling /sendMessage.", ex)
+            }.also {
+                job.cancel()
+            }
         }
     }
 }
 
-private suspend fun DefaultWebSocketServerSession.sendAllTasks() {
-    for (task in TaskRepository.allTasks()) {
-        sendSerialized(task)
-        delay(1000)
-    }
-}
-
-private suspend fun List<WebSocketServerSession>.addTask(newTask: Task) = this.forEach { it.sendSerialized(newTask)
-}
+private suspend fun DefaultWebSocketServerSession.sendAllMessages() = chatRoom.messages().forEach { sendSerialized(it) }

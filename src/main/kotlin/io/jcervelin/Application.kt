@@ -18,9 +18,8 @@ import java.time.Instant
 import java.time.ZoneId
 
 fun main() {
-    val embeddedServer = embeddedServer(Netty, port = 8080, module = Application::module)
+    embeddedServer(Netty, port = 8080, module = Application::module)
         .start(wait = true)
-
 }
 
 val j = Json {
@@ -46,7 +45,7 @@ inline fun <reified T> T.toJson(): String {
 }
 
 fun Application.module() {
-    configureSockets()
+    configureSockets(chatRoom, openAIClient, history, clock = Clock.fixed(Instant.now(), ZoneId.systemDefault()))
     configureSerialization(j)
-    configureRouting(chatRoom, openAIClient, history, clock = Clock.fixed(Instant.now(), ZoneId.systemDefault()))
+    configureRouting()
 }
