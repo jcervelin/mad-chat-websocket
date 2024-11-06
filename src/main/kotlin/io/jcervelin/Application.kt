@@ -2,10 +2,9 @@ package io.jcervelin
 
 import io.jcervelin.models.ChatRoom
 import io.jcervelin.models.History
-import io.jcervelin.plugins.configureClientSerialization
-import io.jcervelin.plugins.configureRouting
-import io.jcervelin.plugins.configureSerialization
+import io.jcervelin.plugins.*
 import io.jcervelin.services.LRUCache
+import io.jcervelin.services.MockOpenAIClient
 import io.jcervelin.services.OpenAIClient
 import io.ktor.client.*
 import io.ktor.client.engine.cio.*
@@ -19,8 +18,9 @@ import java.time.Instant
 import java.time.ZoneId
 
 fun main() {
-    embeddedServer(Netty, port = 8080, module = Application::module)
+    val embeddedServer = embeddedServer(Netty, port = 8080, module = Application::module)
         .start(wait = true)
+
 }
 
 val j = Json {
@@ -35,12 +35,18 @@ val history = History(LRUCache(30))
 val httpClient = HttpClient(CIO) {
     configureClientSerialization()
 }
-private val openAIClient = OpenAIClient(apiKey = System.getenv("OPEN_AI_KEY") ?: "MISSING_KEY", history, httpClient)
+val env = System.getenv("ENV") ?: "dev"
+private val openAIClient = when (env) {
+    "prd" -> OpenAIClient(apiKey = System.getenv("OPEN_AI_KEY") ?: "MISSING_KEY", history, httpClient)
+    else -> MockOpenAIClient()
+}
+
 inline fun <reified T> T.toJson(): String {
     return j.encodeToString(serializer(), this)
 }
 
 fun Application.module() {
+    configureSockets()
     configureSerialization(j)
     configureRouting(chatRoom, openAIClient, history, clock = Clock.fixed(Instant.now(), ZoneId.systemDefault()))
 }

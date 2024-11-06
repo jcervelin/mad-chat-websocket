@@ -9,6 +9,7 @@ import io.jcervelin.services.sendMessageService
 import io.jcervelin.toJson
 import io.ktor.http.*
 import io.ktor.server.application.*
+import io.ktor.server.http.content.*
 import io.ktor.server.plugins.openapi.*
 import io.ktor.server.plugins.swagger.*
 import io.ktor.server.request.*
@@ -28,6 +29,8 @@ fun Application.configureRouting(
     clock: Clock
 ) {
     routing {
+        staticResources("/", "static")
+
         post("/sendMessage") {
             runCatching {
                 val messageRequest = call.receive<MessageRequest>()

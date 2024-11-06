@@ -4,15 +4,12 @@ import io.jcervelin.models.ChatRoom
 import io.jcervelin.models.History
 import io.jcervelin.models.Message
 import io.jcervelin.models.MessageRequest
-import kotlinx.coroutines.runBlocking
 
-fun sendMessageService(messageRequest: MessageRequest, chatRoom: ChatRoom,
+suspend fun sendMessageService(messageRequest: MessageRequest, chatRoom: ChatRoom,
                        openAIClient: AIClient, history: History, timestamp: Long
 ): Message {
 
-    val alteredContent = runBlocking {
-        openAIClient.getRudeResponse(messageRequest.content)
-    }
+    val alteredContent = openAIClient.getRudeResponse(messageRequest.content)
 
     history.add(content = messageRequest.content, alteredContent = alteredContent)
 
