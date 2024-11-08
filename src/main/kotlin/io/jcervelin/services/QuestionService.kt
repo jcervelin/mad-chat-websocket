@@ -5,8 +5,9 @@ import io.jcervelin.models.History
 import io.jcervelin.models.Message
 import io.jcervelin.models.MessageRequest
 
-suspend fun sendMessageService(messageRequest: MessageRequest, chatRoom: ChatRoom,
-                       openAIClient: AIClient, history: History, timestamp: Long
+suspend fun sendMessageService(
+    messageRequest: MessageRequest, chatRoom: ChatRoom,
+    openAIClient: AIClient, history: History, timestamp: Long
 ): Message {
 
     val alteredContent = openAIClient.getRudeResponse(messageRequest.content)
@@ -15,8 +16,3 @@ suspend fun sendMessageService(messageRequest: MessageRequest, chatRoom: ChatRoo
 
     return chatRoom.addMessage(messageRequest.user, alteredContent, timestamp)
 }
-
-fun fetchMessage(lastMessageId: Long, chatRoom: ChatRoom): List<Message> =
-    chatRoom.messages().dropWhile {
-        it.id <= lastMessageId
-    }

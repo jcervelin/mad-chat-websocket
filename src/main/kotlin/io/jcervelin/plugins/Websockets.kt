@@ -7,6 +7,7 @@ import io.jcervelin.models.Message
 import io.jcervelin.models.MessageRequest
 import io.jcervelin.services.AIClient
 import io.jcervelin.services.sendMessageService
+import io.jcervelin.toObject
 import io.ktor.serialization.kotlinx.*
 import io.ktor.server.application.*
 import io.ktor.server.routing.*
@@ -17,12 +18,9 @@ import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.Json
-import org.slf4j.LoggerFactory
 import java.time.Clock
 import java.time.Instant
 import kotlin.time.Duration.Companion.seconds
-
-private val logger = LoggerFactory.getLogger("websocket")
 
 fun Application.configureSockets(
     chatRoom: ChatRoom,
@@ -53,22 +51,25 @@ fun Application.configureSockets(
 
             runCatching {
                 incoming.consumeEach {
-                    if (it is Frame.Text) {
-                        val messageRequest = Json.decodeFromString<MessageRequest>(it.readText())
+                    when (it) {
+                        is Frame.Text -> {
+                            val messageRequest = it.readText().toObject<MessageRequest>()
+                            log.info("messageRequest: $messageRequest")
+                            val messageResponse = sendMessageService(
+                                messageRequest,
+                                chatRoom,
+                                openAIClient,
+                                history,
+                                Instant.now(clock).toEpochMilli()
+                            )
+                            messageResponseFlow.emit(messageResponse)
+                        }
 
-                        val messageResponse = sendMessageService(
-                            messageRequest,
-                            chatRoom,
-                            openAIClient,
-                            history,
-                            Instant.now(clock).toEpochMilli()
-                        )
-
-                        messageResponseFlow.emit(messageResponse)
+                        else -> Unit
                     }
                 }
             }.onFailure { ex ->
-                logger.error("Error while calling /sendMessage.", ex)
+                log.error("Error while calling /sendMessage.", ex)
             }.also {
                 job.cancel()
             }

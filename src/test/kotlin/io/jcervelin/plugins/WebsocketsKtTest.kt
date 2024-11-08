@@ -5,15 +5,17 @@ import io.jcervelin.history
 import io.jcervelin.j
 import io.jcervelin.models.Message
 import io.jcervelin.services.AIClient
-import io.ktor.client.call.*
-import io.ktor.client.request.*
-import io.ktor.http.*
+import io.ktor.client.plugins.websocket.*
 import io.ktor.server.testing.*
+import io.ktor.websocket.*
 import junit.framework.TestCase.assertEquals
+import kotlinx.serialization.json.Json
 import java.time.*
 import kotlin.test.Test
+import io.ktor.client.plugins.websocket.WebSockets as ClientWebsockets
 
-class RoutingKtTest {
+
+class WebsocketsKtTest {
 
     @Test
     fun testGetMessages() = testApplication {
@@ -22,7 +24,7 @@ class RoutingKtTest {
 
         application {
             configureSerialization(j)
-            configureRouting(
+            configureSockets(
                 chatRoom = chatRoom, openAIClient = MockOpenAIClient(), history = history,
                 clock = Clock.fixed(
                     Instant.from(fixedDateTime),
@@ -31,48 +33,36 @@ class RoutingKtTest {
             )
         }
 
-        val httpClient = client
+        val client = createClient {
+            install(ClientWebsockets)
+        }
+
+        val websocketClient = client
             .config {
                 configureClientSerialization()
             }
 
-        httpClient
-            .post("/sendMessage") {
-                setBody(
-                    """
+        val request = Frame.Text(
+            """
                 {
                   "user": "Juliano",
                   "content": "Show time!"
                 }
             """.trimIndent()
-                )
-                contentType(ContentType.Application.Json)
-            }.apply {
-                assertEquals(HttpStatusCode.OK, status)
-
-            }
-
-        val expected: List<Message> = listOf(
-            Message(
-                id = 1,
-                content = "Something funny and rude. Show time!",
-                user = "Juliano",
-                timestamp = Instant.from(fixedDateTime).toEpochMilli()
-            )
         )
 
-        httpClient.get {
-            url {
-                path("messages")
-                parameters.append("lastMessageId", "0")
-            }
-            contentType(ContentType.Application.Json)
-        }.apply {
-            assertEquals(HttpStatusCode.OK, status)
-            val response = body<List<Message>>()
+        val expected = Message(
+            id = 1,
+            user = "Juliano",
+            content = "Something funny and rude. Show time!",
+            timestamp = 1602288000000
+        )
 
-            assertEquals(expected.size, 1)
-            assertEquals(expected, response)
+        websocketClient.webSocket("/messages") {
+            send(request)
+            val textReceived = (incoming.receive() as? Frame.Text)?.readText() ?: ""
+            val result = Json.decodeFromString<Message>(textReceived)
+            assertEquals(expected, result)
         }
     }
 }

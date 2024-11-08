@@ -2,7 +2,9 @@ package io.jcervelin
 
 import io.jcervelin.models.ChatRoom
 import io.jcervelin.models.History
-import io.jcervelin.plugins.*
+import io.jcervelin.plugins.configureClientSerialization
+import io.jcervelin.plugins.configureSerialization
+import io.jcervelin.plugins.configureSockets
 import io.jcervelin.services.LRUCache
 import io.jcervelin.services.MockOpenAIClient
 import io.jcervelin.services.OpenAIClient
@@ -44,8 +46,11 @@ inline fun <reified T> T.toJson(): String {
     return j.encodeToString(serializer(), this)
 }
 
+inline fun <reified T> String.toObject(): T {
+    return j.decodeFromString(serializer(), this)
+}
+
 fun Application.module() {
     configureSockets(chatRoom, openAIClient, history, clock = Clock.fixed(Instant.now(), ZoneId.systemDefault()))
     configureSerialization(j)
-    configureRouting()
 }

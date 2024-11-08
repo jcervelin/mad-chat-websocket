@@ -104,11 +104,12 @@ class OpenAIClient(private val apiKey: String, private val history: History, pri
                     )
                 )
             }
-        return if (httpResponse.status == HttpStatusCode.OK) {
-            val body = httpResponse.body<OpenAIChatResponse>()
-            body.choices.firstOrNull()?.message?.content.toString()
-        } else {
-            throw RuntimeException("Error while trying to call OpenAI: ${httpResponse.body<String>()}")
+        return when (httpResponse.status.isSuccess()) {
+            true -> {
+                val body = httpResponse.body<OpenAIChatResponse>()
+                body.choices.firstOrNull()?.message?.content.toString()
+            }
+            else -> throw RuntimeException("Error while trying to call OpenAI: ${httpResponse.body<String>()}")
         }
     }
 }
