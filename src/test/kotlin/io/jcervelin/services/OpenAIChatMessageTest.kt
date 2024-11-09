@@ -6,7 +6,7 @@ import kotlin.test.Test
 class OpenAIChatMessageTest {
 
     @Test
-    fun test() {
+    fun `visualise http request to Open AI`() {
 
         val messages = listOf(
             OpenAIChatMessage(
