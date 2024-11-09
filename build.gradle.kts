@@ -8,8 +8,8 @@ val commons_text_version: String by project
 
 plugins {
     kotlin("jvm") version "2.0.21"
-    id("io.ktor.plugin") version "3.0.0"
-    id("com.google.cloud.tools.jib") version "3.4.3"
+    id("io.ktor.plugin") version "3.0.1"
+//    id("com.google.cloud.tools.jib") version "3.4.3"
     id("org.jetbrains.kotlin.plugin.serialization") version "2.0.21"
 }
 
@@ -28,21 +28,29 @@ repositories {
     maven { url = uri("https://maven.pkg.jetbrains.space/public/p/ktor/eap") }
 }
 
-jib {
-    from {
-        image = "eclipse-temurin:17.0.12_7-jdk-focal"
-    }
-    to {
-        auth {
-            username = docker_username
-            password = docker_password
-        }
-        image = docker_image_name
-    }
-    container {
-        mainClass = "io.jcervelin.ApplicationKt"
+ktor {
+    docker {
+        jreVersion.set(JavaVersion.VERSION_21)
+        localImageName.set(docker_image_name)
+        imageTag.set("0.0.1")
     }
 }
+
+//jib {
+//    from {
+//        image = "eclipse-temurin:17.0.12_7-jdk-focal"
+//    }
+//    to {
+//        auth {
+//            username = docker_username
+//            password = docker_password
+//        }
+//        image = docker_image_name
+//    }
+//    container {
+//        mainClass = "io.jcervelin.ApplicationKt"
+//    }
+//}
 
 dependencies {
     implementation("io.ktor:ktor-server-netty")

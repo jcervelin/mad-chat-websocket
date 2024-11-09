@@ -1,4 +1,4 @@
-# Kotlin—Ktor Application using Http with Swagger and Open API
+# Kotlin—Ktor Application using Http with Websocket
 
 ## Build
 
@@ -16,24 +16,16 @@
 ./gradlew clean run
 ```
 
-## Swagger
-On Windows
+## Run on Docker
+
 ```shell
-explorer http://localhost:8080/swagger
+./gradlew clean buildImage
 ```
 
-On Mac/Linux
 ```shell
-open http://localhost:8080/swagger
+docker load -i build/jib-image.tar 
 ```
 
-## OpenApi
-On Windows
 ```shell
-explorer http://localhost:8080/openapi
-```
-
-On Mac/Linux
-```shell
-open http://localhost:8080/openapi
+docker run -p 8080:8080 julianocervelin/mad-chat-api:latest
 ```
